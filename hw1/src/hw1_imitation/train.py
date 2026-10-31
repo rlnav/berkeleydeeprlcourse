@@ -12,6 +12,7 @@ import torch
 import tyro
 import wandb
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from hw1_imitation.data import (
     Normalizer,
@@ -20,7 +21,7 @@ from hw1_imitation.data import (
     load_pusht_zarr,
 )
 from hw1_imitation.model import build_policy, PolicyType
-from hw1_imitation.evaluation import Logger
+from hw1_imitation.evaluation import Logger, evaluate_policy
 
 LOGDIR_PREFIX = "exp"
 
@@ -127,8 +128,61 @@ def run_training(config: TrainConfig) -> None:
     )
     logger = Logger(log_dir)
 
-    ### TODO: PUT YOUR MAIN TRAINING LOOP HERE ###
+    optimizer = torch.optim.Adam(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
+    step = 0
 
+    def _train_step(state: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
+        # Forward pass
+        loss = model.compute_loss(state, actions)
+
+        # Backward pass
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        return loss
+
+    # # Compile the training step
+    # _train_step = torch.compile(_train_step, mode="reduce-overhead")
+
+    for epoch in range(config.num_epochs):
+        model.train()
+
+        # Training epoch
+        epoch_loss = 0.0
+        for state, actions in tqdm(loader, desc=f"Training epoch {epoch}", total=len(loader)):
+            state = state.to(device)
+            actions = actions.to(device)
+
+            loss = _train_step(state, actions)
+
+            epoch_loss += loss.item()
+            step += 1
+
+            # Evaluation
+            if step % config.eval_interval == 0:
+                print("Evaluation...")
+                evaluate_policy(
+                    model=model,
+                    normalizer=normalizer,
+                    device=device,
+                    chunk_size=config.chunk_size,
+                    video_size=config.video_size,
+                    num_video_episodes=config.num_video_episodes,
+                    flow_num_steps=config.flow_num_steps,
+                    step=step,
+                    logger=logger,
+                )
+
+        epoch_loss /= len(loader)
+
+        log_data = {
+            "train/epoch_loss": epoch_loss,
+            "epoch": epoch + 1,
+        }
+        logger.log(row=log_data, step=step)
+
+    print("Training complete.")
     logger.dump_for_grading()
 
 
