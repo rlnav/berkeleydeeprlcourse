@@ -51,15 +51,14 @@ class MSEPolicy(BasePolicy):
         output_dim = chunk_size * action_dim
         dims = (input_dim, *hidden_dims, output_dim)
 
-        for in_dim, out_dim in zip(dims[:-1], dims[1:]):
+        for i, (in_dim, out_dim) in enumerate(zip(dims[:-1], dims[1:])):
             layers.append(nn.Linear(in_dim, out_dim))
 
-            if out_dim != output_dim:
+            # ReLU after every layer except the output layer
+            if i < len(dims) - 2:
                 layers.append(nn.ReLU())
 
         self.network = nn.Sequential(*layers)
-
-        self.criterion = nn.MSELoss(reduction="mean")
 
     def compute_loss(
         self,
@@ -67,8 +66,8 @@ class MSEPolicy(BasePolicy):
         action_chunk: torch.Tensor,
     ) -> torch.Tensor:
         pred_action_chunk = self.sample_actions(state=state)
-        mse = self.criterion(action_chunk, pred_action_chunk)
-        return mse
+        # Eq. (1): squared L2 norm per chunk, averaged over the batch
+        return (action_chunk - pred_action_chunk).pow(2).sum(dim=(1, 2)).mean()
 
     def sample_actions(
         self,
