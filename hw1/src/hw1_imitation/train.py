@@ -142,8 +142,8 @@ def run_training(config: TrainConfig) -> None:
 
         return loss
 
-    # # Compile the training step
-    # _train_step = torch.compile(_train_step, mode="reduce-overhead")
+    # Compile the training step
+    _train_step = torch.compile(_train_step)
 
     for epoch in range(config.num_epochs):
         model.train()
