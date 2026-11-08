@@ -59,17 +59,29 @@ def run_training_loop(logger, args):
 
     for itr in range(args.n_iter):
         print(f"\n********** Iteration {itr} ************")
-        # TODO: sample `args.batch_size` transitions using utils.sample_trajectories
+        # sample `args.batch_size` transitions using utils.sample_trajectories
         # make sure to use `max_ep_len`
-        trajs, envsteps_this_batch = None, None
+        trajs, envsteps_this_batch = utils.sample_trajectories(
+            env=env, policy=agent.actor, min_timesteps_per_batch=args.batch_size, max_length=max_ep_len, 
+        )
         total_envsteps += envsteps_this_batch
 
         # trajs should be a list of dictionaries of NumPy arrays, where each dictionary corresponds to a trajectory.
         # this line converts this into a single dictionary of lists of NumPy arrays.
         trajs_dict = {k: [traj[k] for traj in trajs] for k in trajs[0]}
+        # for key, val in trajs_dict.items():
+        #     print(f"{key} len: {len(val)}")
+        # return
 
         # TODO: train the agent using the sampled trajectories and the agent's update function
-        train_info: dict = None
+        train_info: dict = agent.update(
+            obs=trajs_dict["observation"],
+            actions=trajs_dict["action"],
+            rewards=trajs_dict["reward"],
+            terminals=trajs_dict["terminal"],
+        )
+        print(train_info)
+        return
 
         if itr % args.scalar_log_freq == 0:
             # save eval metrics

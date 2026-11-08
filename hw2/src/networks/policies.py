@@ -59,8 +59,9 @@ class MLPPolicy(nn.Module):
     @torch.no_grad()
     def get_action(self, obs: np.ndarray) -> np.ndarray:
         """Takes a single observation (as a numpy array) and returns a single action (as a numpy array)."""
-        # TODO: implement get_action
-        action = None
+        # implement get_action
+        probs = self.forward(obs=torch.from_numpy(obs[np.newaxis]).to(ptu.device))
+        action = torch.argmax(probs, dim=1).squeeze(0).cpu().numpy()
 
         return action
 
@@ -71,8 +72,8 @@ class MLPPolicy(nn.Module):
         flexible objects, such as a `torch.distributions.Distribution` object. It's up to you!
         """
         if self.discrete:
-            # TODO: define the forward pass for a policy with a discrete action space.
-            pass
+            # define the forward pass for a policy with a discrete action space.
+            return self.logits_net(obs)
         else:
             # TODO: define the forward pass for a policy with a continuous action space.
             pass
