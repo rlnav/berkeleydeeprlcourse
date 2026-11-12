@@ -113,7 +113,15 @@ class PGAgent(nn.Module):
         Helper function which takes a list of rewards {r_0, r_1, ..., r_t', ... r_T} and returns a list where the entry
         in each index t is sum_{t'=t}^T gamma^(t'-t) * r_{t'}.
         """
-        return None
+        q_values = []
+        for traj_rewards in rewards:
+            returns = np.zeros(len(traj_rewards))
+            Q = 0.0
+            for t in reversed(range(len(traj_rewards))):
+                Q = traj_rewards[t] + self.gamma * Q
+                returns[t] = Q
+            q_values.append(returns)
+        return np.concatenate(q_values)
 
     def _calculate_q_vals(self, rewards: Sequence[np.ndarray]) -> Sequence[np.ndarray]:
         """Monte Carlo estimation of the Q function."""
@@ -126,7 +134,6 @@ class PGAgent(nn.Module):
         else:
             # Case 2: in reward-to-go PG, we only use the rewards after timestep t to estimate the Q-value for (s_t, a_t).
             # In other words: Q(s_t, a_t) = sum_{t'=t}^T gamma^(t'-t) * r_{t'}
-            # TODO
             q_values = self._discounted_reward_to_go(rewards)
 
         return np.asarray(q_values)
@@ -170,7 +177,7 @@ class PGAgent(nn.Module):
                 # remove dummy advantage
                 advantages = advantages[:-1]
 
-        # TODO: normalize the advantages to have a mean of zero and a standard deviation of one within the batch
+        # normalize the advantages to have a mean of zero and a standard deviation of one within the batch
         if self.normalize_advantages:
             eps = 1e-8
             advantages = (advantages - advantages.mean(axis=0)) / (advantages.std(axis=0) + eps)
