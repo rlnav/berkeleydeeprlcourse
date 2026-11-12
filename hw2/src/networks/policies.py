@@ -60,7 +60,7 @@ class MLPPolicy(nn.Module):
     def get_action(self, obs: np.ndarray) -> np.ndarray:
         """Takes a single observation (as a numpy array) and returns a single action (as a numpy array)."""
         # implement get_action
-        probs = self.forward(obs=torch.from_numpy(obs[np.newaxis]).to(ptu.device))
+        probs = self.forward(ptu.from_numpy(obs[np.newaxis]))
         action = torch.argmax(probs, dim=1).squeeze(0).cpu().numpy()
 
         return action
@@ -101,10 +101,14 @@ class MLPPolicyPG(MLPPolicy):
         advantages = ptu.from_numpy(advantages)
 
         # TODO: compute the policy gradient actor loss
-        loss = None
+        self.optimizer.zero_grad()
+        logits = self.forward(obs) # This should return (N*T) x Da tensor of action logits
+        # loss = -(actions * F.log_softmax(logits, dim=-1)).sum(dim=-1).mean()
+        loss = F.cross_entropy(input=logits, target=actions.long())
 
         # TODO: perform an optimizer step
-        pass
+        loss.backward()
+        self.optimizer.step()
 
         return {
             "Actor Loss": loss.item(),
