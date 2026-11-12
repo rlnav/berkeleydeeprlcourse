@@ -59,11 +59,11 @@ class MLPPolicy(nn.Module):
     @torch.no_grad()
     def get_action(self, obs: np.ndarray) -> np.ndarray:
         """Takes a single observation (as a numpy array) and returns a single action (as a numpy array)."""
-        # implement get_action
-        probs = self.forward(ptu.from_numpy(obs[np.newaxis]))
-        action = torch.argmax(probs, dim=1).squeeze(0).cpu().numpy()
-
-        return action
+        obs = ptu.from_numpy(obs[np.newaxis])
+        logits = self.forward(obs)
+        distribution = distributions.Categorical(logits=logits)
+        action = distribution.sample()
+        return action.item()
 
     def forward(self, obs: torch.FloatTensor):
         """
@@ -95,18 +95,38 @@ class MLPPolicyPG(MLPPolicy):
         actions: np.ndarray,
         advantages: np.ndarray,
     ) -> dict:
-        """Implements the policy gradient actor update."""
+        r"""Implements the policy gradient actor update.
+
+        Performs one gradient step on the surrogate loss, whose gradient is the policy gradient estimate:
+
+            L(theta) = -(1/N) * sum_i A_i * log pi_theta(a_i | s_i)
+
+            grad_theta J(theta) ~= (1/N) * sum_i grad_theta log pi_theta(a_i | s_i) * A_i = -grad_theta L(theta)
+
+        where i indexes every (s_t, a_t) pair in the batch, N = sum_i T_i is the total number of transitions, and
+        A_i is the advantage (e.g. the discounted return or reward-to-go, optionally minus a baseline). The advantages
+        are treated as constants, so no gradient flows through them.
+
+        Args:
+            obs: observations s_i, shape (N, ob_dim).
+            actions: actions a_i taken in the rollouts, shape (N,). Integer indices for discrete action spaces.
+            advantages: advantage estimates A_i, shape (N,).
+
+        Returns:
+            A dict with the scalar loss under the key "Actor Loss".
+        """
         obs = ptu.from_numpy(obs)
         actions = ptu.from_numpy(actions)
         advantages = ptu.from_numpy(advantages)
 
-        # TODO: compute the policy gradient actor loss
+        # compute the policy gradient actor loss
         self.optimizer.zero_grad()
         logits = self.forward(obs) # This should return (N*T) x Da tensor of action logits
-        # loss = -(actions * F.log_softmax(logits, dim=-1)).sum(dim=-1).mean()
-        loss = F.cross_entropy(input=logits, target=actions.long())
+        distribution = distributions.Categorical(logits=logits)
+        log_probs = distribution.log_prob(actions.long())  # shape: (N*T,)
+        loss = -(log_probs * advantages).mean()
 
-        # TODO: perform an optimizer step
+        # perform an optimizer step
         loss.backward()
         self.optimizer.step()
 

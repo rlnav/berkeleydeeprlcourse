@@ -105,8 +105,8 @@ class PGAgent(nn.Module):
             for r in traj_r:
                 q += discount * r
                 discount *= self.gamma
-            q_values.append(q)
-        return q_values
+            q_values.append(np.full(len(traj_r), q))
+        return np.concatenate(q_values)
 
     def _discounted_reward_to_go(self, rewards: Sequence[float]) -> Sequence[float]:
         """
