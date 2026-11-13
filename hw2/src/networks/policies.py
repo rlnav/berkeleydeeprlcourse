@@ -6,7 +6,6 @@ from torch import optim
 
 import numpy as np
 import torch
-from torch import distributions
 
 from infrastructure import pytorch_util as ptu
 
@@ -60,10 +59,9 @@ class MLPPolicy(nn.Module):
     def get_action(self, obs: np.ndarray) -> np.ndarray:
         """Takes a single observation (as a numpy array) and returns a single action (as a numpy array)."""
         obs = ptu.from_numpy(obs[np.newaxis])
-        logits = self.forward(obs)
-        distribution = distributions.Categorical(logits=logits)
-        action = distribution.sample()
-        return action.item()
+        distribution = self.forward(obs)
+        actions = distribution.sample()
+        return ptu.to_numpy(actions.squeeze(0))
 
     def forward(self, obs: torch.FloatTensor):
         """
@@ -73,10 +71,15 @@ class MLPPolicy(nn.Module):
         """
         if self.discrete:
             # define the forward pass for a policy with a discrete action space.
-            return self.logits_net(obs)
+            logits = self.logits_net(obs)
+            distribution = D.Categorical(logits=logits)
+            return distribution
         else:
-            # TODO: define the forward pass for a policy with a continuous action space.
-            pass
+            # define the forward pass for a policy with a continuous action space.
+            mean = self.mean_net(obs)
+            std = torch.exp(self.logstd)
+            distribution = D.Normal(mean, std)
+            return distribution
 
     def update(self, obs: np.ndarray, actions: np.ndarray, *args, **kwargs) -> dict:
         """
@@ -121,9 +124,8 @@ class MLPPolicyPG(MLPPolicy):
 
         # compute the policy gradient actor loss
         self.optimizer.zero_grad()
-        logits = self.forward(obs) # This should return (N*T) x Da tensor of action logits
-        distribution = distributions.Categorical(logits=logits)
-        log_probs = distribution.log_prob(actions.long())  # shape: (N*T,)
+        distribution = self.forward(obs)
+        log_probs = distribution.log_prob(actions)
         loss = -(log_probs * advantages).mean()
 
         # perform an optimizer step

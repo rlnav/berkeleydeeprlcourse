@@ -6,7 +6,7 @@ import time
 import gym
 import numpy as np
 import torch
-import tqdm
+from tqdm import tqdm
 
 from agents.pg_agent import PGAgent
 from infrastructure import utils
@@ -57,8 +57,8 @@ def run_training_loop(logger, args):
     total_envsteps = 0
     start_time = time.time()
 
-    for itr in range(args.n_iter):
-        print(f"\n********** Iteration {itr} ************")
+    for itr in tqdm(range(args.n_iter)):
+        # print(f"\n********** Iteration {itr} ************")
         # sample `args.batch_size` transitions using utils.sample_trajectories
         # make sure to use `max_ep_len`
         trajs, envsteps_this_batch = utils.sample_trajectories(
@@ -80,7 +80,7 @@ def run_training_loop(logger, args):
 
         if itr % args.scalar_log_freq == 0:
             # save eval metrics
-            print("\nCollecting data for eval...")
+            # print("\nCollecting data for eval...")
             eval_trajs, eval_envsteps_this_batch = utils.sample_trajectories(
                 env, agent.actor, args.eval_batch_size, max_ep_len
             )
@@ -95,14 +95,14 @@ def run_training_loop(logger, args):
                     "Train_AverageReturn"
                 ]
 
-            # perform the logging
-            for key, value in logs.items():
-                print("{} : {}".format(key, value))
+            # # perform the logging
+            # for key, value in logs.items():
+            #     print("{} : {}".format(key, value))
             logger.log(logs, itr)
-            print("Done logging...\n\n", flush=True)
+            # print("Done logging...\n\n", flush=True)
 
         if args.video_log_freq != -1 and itr % args.video_log_freq == 0:
-            print("\nCollecting video rollouts...")
+            # print("\nCollecting video rollouts...")
             eval_video_trajs = utils.sample_n_trajectories(
                 env, agent.actor, MAX_NVIDEO, max_ep_len, render=True
             )
