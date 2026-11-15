@@ -126,6 +126,8 @@ class MLPPolicyPG(MLPPolicy):
         self.optimizer.zero_grad()
         distribution = self.forward(obs)
         log_probs = distribution.log_prob(actions)
+        if not self.discrete:
+            log_probs = log_probs.sum(dim=-1)
         loss = -(log_probs * advantages).mean()
 
         # perform an optimizer step
