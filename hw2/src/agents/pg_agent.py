@@ -64,7 +64,7 @@ class PGAgent(nn.Module):
         # step 1: calculate Q values of each (s_t, a_t) point, using rewards (r_0, ..., r_t, ..., r_T)
         q_values: Sequence[np.ndarray] = self._calculate_q_vals(rewards)
 
-        # TODO: flatten the lists of arrays into single arrays, so that the rest of the code can be written in a vectorized
+        # flatten the lists of arrays into single arrays, so that the rest of the code can be written in a vectorized
         # way. obs, actions, rewards, terminals, and q_values should all be arrays with a leading dimension of `batch_size`
         # beyond this point.
         obs = np.concatenate(obs, axis=0)
@@ -83,8 +83,9 @@ class PGAgent(nn.Module):
 
         # step 4: if needed, use all datapoints (s_t, a_t, q_t) to update the PG critic/baseline
         if self.critic is not None:
-            # TODO: perform `self.baseline_gradient_steps` updates to the critic/baseline network
-            critic_info = None
+            # perform `self.baseline_gradient_steps` updates to the critic/baseline network
+            for _ in range(self.baseline_gradient_steps):
+                critic_info = self.critic.update(obs=obs, q_values=q_values)
 
             info.update(critic_info)
 
@@ -154,7 +155,8 @@ class PGAgent(nn.Module):
             advantages = q_values
         else:
             # run the critic and use it as a baseline
-            values = self.critic(obs=ptu.from_numpy(obs[np.newaxis])).squeeze(0)
+            values = self.critic(obs=ptu.from_numpy(obs))
+            values = ptu.to_numpy(values)
             assert values.shape == q_values.shape
 
             if self.gae_lambda is None:
