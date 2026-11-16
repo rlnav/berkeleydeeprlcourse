@@ -1,11 +1,9 @@
-import itertools
 from torch import nn
 from torch.nn import functional as F
 from torch import optim
 
 import numpy as np
 import torch
-from torch import distributions
 
 from infrastructure import pytorch_util as ptu
 
